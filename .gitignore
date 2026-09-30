@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+
+# environment - real values never get commited
+.env
+.env.local
+.env.*.local
+
+# logs & caches
+*.log
+npm-debug.log*
+.DS_Store
+*.tsbuildinfo
+.vite/
