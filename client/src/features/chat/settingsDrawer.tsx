@@ -13,6 +13,13 @@ export function SettingsDrawer({
   setMaxTokensInput,
   maxTokensLimit,
   maxTokensError,
+  stopSequencesInput,
+  setStopSequencesInput,
+  temperatureInput,
+  setTemperatureInput,
+  temperatureLimit,
+  temperatureSupported,
+  temperatureError,
   onClose,
 }: Props) {
   return (
@@ -61,6 +68,45 @@ export function SettingsDrawer({
           <span role="alert" className="text-xs font-normal text-red-600">
             {maxTokensError}
           </span>
+        )}
+      </label>
+
+      <label className="flex flex-col gap-1.5 text-sm font-medium text-gray-700">
+        Stop sequences
+        <input
+          type="text"
+          value={stopSequencesInput}
+          onChange={(e) => setStopSequencesInput(e.target.value)}
+          placeholder="e.g. END, ###"
+          className={fieldClass}
+        />
+        <span className="text-xs font-normal text-gray-500">Comma separated</span>
+      </label>
+
+      <label className="flex flex-col gap-1.5 text-sm font-medium text-gray-700">
+        Temperature
+        <input
+          type="number"
+          min={temperatureLimit.min}
+          max={temperatureLimit.max}
+          step={0.1}
+          value={temperatureInput}
+          onChange={(e) => setTemperatureInput(e.target.value)}
+          disabled={!temperatureSupported}
+          placeholder="Model default"
+          aria-invalid={!!temperatureError}
+          className={`${fieldClass} disabled:cursor-not-allowed disabled:bg-gray-100 ${temperatureError ? 'border-red-500' : ''}`}
+        />
+        {temperatureError ? (
+          <span role="alert" className="text-xs font-normal text-red-600">
+            {temperatureError}
+          </span>
+        ) : (
+          !temperatureSupported && (
+            <span className="text-xs font-normal text-gray-500">
+              Not supported by the selected model
+            </span>
+          )
         )}
       </label>
     </aside>

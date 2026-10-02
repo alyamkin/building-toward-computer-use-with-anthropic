@@ -1,14 +1,25 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
 
-export type Model = { id: string; name: string; inputPrice: number; outputPrice: number }
+export type Model = {
+  id: string
+  name: string
+  inputPrice: number
+  outputPrice: number
+  supportsTemperature: boolean
+}
 
-export type MessageSettings = { model: string; maxTokens: number }
+export type MessageSettings = {
+  model: string
+  maxTokens: number
+  stopSequences: string[]
+  temperature?: number
+}
 
 type ConfigResponse = {
   models: Model[]
   defaults: { model: string; maxTokens: number }
-  limits: { maxTokens: { min: number; max: number } }
+  limits: { maxTokens: { min: number; max: number }; temperature: { min: number; max: number } }
 }
 
 export function useMessageSettings() {
@@ -17,6 +28,10 @@ export function useMessageSettings() {
   // Kept as a string so the field can be cleared while typing
   const [maxTokensInput, setMaxTokensInput] = useState('1024')
   const [maxTokensLimit, setMaxTokensLimit] = useState(21_333)
+  const [stopSequencesInput, setStopSequencesInput] = useState('')
+  // Empty means "use the model's default"
+  const [temperatureInput, setTemperatureInput] = useState('')
+  const [temperatureLimit, setTemperatureLimit] = useState({ min: 0, max: 1 })
 
   useEffect(() => {
     api
@@ -26,6 +41,7 @@ export function useMessageSettings() {
         setModel(config.defaults.model)
         setMaxTokensInput(String(config.defaults.maxTokens))
         setMaxTokensLimit(config.limits.maxTokens.max)
+        setTemperatureLimit(config.limits.temperature)
       })
       .catch(() => {
         // Leave the list empty; the server falls back to its defaults
@@ -38,7 +54,22 @@ export function useMessageSettings() {
       ? undefined
       : `Enter a whole number from 1 to ${maxTokensLimit}`
 
-  const settings: MessageSettings = { model, maxTokens }
+  // Comma separated; surrounding whitespace and empty entries are dropped
+  const stopSequences = stopSequencesInput
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+  const temperatureSupported = models.find((m) => m.id === model)?.supportsTemperature ?? false
+  const temperatureSet = temperatureSupported && temperatureInput.trim() !== ''
+  const temperature = temperatureSet ? Number(temperatureInput) : undefined
+  const temperatureError =
+    temperature === undefined ||
+    (temperature >= temperatureLimit.min && temperature <= temperatureLimit.max)
+      ? undefined
+      : `Enter a number from ${temperatureLimit.min} to ${temperatureLimit.max}`
+
+  const settings: MessageSettings = { model, maxTokens, stopSequences, temperature }
 
   return {
     models,
@@ -48,7 +79,14 @@ export function useMessageSettings() {
     setMaxTokensInput,
     maxTokensLimit,
     maxTokensError,
+    stopSequencesInput,
+    setStopSequencesInput,
+    temperatureInput,
+    setTemperatureInput,
+    temperatureLimit,
+    temperatureSupported,
+    temperatureError,
     settings,
-    isValid: !maxTokensError,
+    isValid: !maxTokensError && !temperatureError,
   }
 }

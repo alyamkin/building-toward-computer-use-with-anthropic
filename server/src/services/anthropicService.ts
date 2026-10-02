@@ -4,26 +4,42 @@ import {
   DEFAULT_MODEL,
   MAX_TOKENS_LIMIT,
   MODELS,
+  TEMPERATURE_LIMIT,
   type ModelId,
 } from '../config/models.js'
 
-interface MessagePayload {
-  content: string
-  model: string
+// Settings for a single message. `model` and `maxTokens` are required by the API, so they
+// always have a value; add further settings as optional fields and only send them when set.
+export interface MessageConfig {
+  model: ModelId
   maxTokens: number
+  stopSequences?: string[]
+  temperature?: number
 }
+
+// What a caller may pass: every field is optional, required ones fall back to defaults
+export type MessageConfigInput = Partial<MessageConfig>
 
 const client = new Anthropic()
 
-function createMessagePayload({
-  content,
-  model,
-  maxTokens,
-}: MessagePayload): Anthropic.MessageCreateParamsNonStreaming {
+function resolveConfig({
+  model = DEFAULT_MODEL,
+  maxTokens = DEFAULT_MAX_TOKENS,
+  ...optional
+}: MessageConfigInput): MessageConfig {
+  return { model, maxTokens, ...optional }
+}
+
+function createMessagePayload(
+  content: string,
+  { model, maxTokens, stopSequences, temperature }: MessageConfig,
+): Anthropic.MessageCreateParamsNonStreaming {
   return {
     model,
     max_tokens: maxTokens,
     messages: [{ role: 'user', content }],
+    ...(stopSequences?.length ? { stop_sequences: stopSequences } : {}),
+    ...(temperature !== undefined ? { temperature } : {}),
   }
 }
 
@@ -32,20 +48,12 @@ export function getConfig() {
   return {
     models: MODELS,
     defaults: { model: DEFAULT_MODEL, maxTokens: DEFAULT_MAX_TOKENS },
-    limits: { maxTokens: { min: 1, max: MAX_TOKENS_LIMIT } },
+    limits: { maxTokens: { min: 1, max: MAX_TOKENS_LIMIT }, temperature: TEMPERATURE_LIMIT },
   }
 }
 
-interface SendMessageOptions {
-  model?: ModelId
-  maxTokens?: number
-}
-
-export async function sendMessage(
-  content: string,
-  { model = DEFAULT_MODEL, maxTokens = DEFAULT_MAX_TOKENS }: SendMessageOptions = {},
-) {
-  const payload = createMessagePayload({ content, model, maxTokens })
+export async function sendMessage(content: string, config: MessageConfigInput = {}) {
+  const payload = createMessagePayload(content, resolveConfig(config))
   const message = await client.messages.create(payload)
   return message
 }

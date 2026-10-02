@@ -17,15 +17,23 @@ export function useChat() {
   const [entries, setEntries] = useState<ChatEntry[]>([])
   const [loading, setLoading] = useState(false)
 
-  async function ask(question: string, { model, maxTokens }: MessageSettings) {
+  async function ask(
+    question: string,
+    { model, maxTokens, stopSequences, temperature }: MessageSettings,
+  ) {
     const id = crypto.randomUUID()
     setEntries((prev) => [...prev, { id, question }])
     setLoading(true)
     try {
       const res = await api.post<MessageResponse>('/anthropic/messages', {
         content: question,
-        model: model || undefined,
-        maxTokens,
+        // Optional; the server fills in defaults for anything left out
+        config: {
+          model: model || undefined,
+          maxTokens,
+          stopSequences: stopSequences.length ? stopSequences : undefined,
+          temperature,
+        },
       })
       const answer = res.content
         .filter((b) => b.type === 'text')
