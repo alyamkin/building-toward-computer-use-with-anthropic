@@ -5,7 +5,8 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js'
 const app = express()
 
 // 1. Parsers and global middleware — before any route.
-app.use(express.json())
+// The 100kb default is too small for base64 images.
+app.use(express.json({ limit: '20mb' }))
 
 // 2. The API, all under one prefix. Matches the Vite proxy in step 9.
 app.use('/api', routes)

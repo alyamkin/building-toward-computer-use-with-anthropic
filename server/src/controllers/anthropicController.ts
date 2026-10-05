@@ -47,20 +47,44 @@ function parseMessageConfig(raw: unknown): anthropicService.MessageConfigInput {
   return { model, maxTokens, stopSequences, temperature }
 }
 
+// Validates the images the client sent; the service turns them into image content blocks
+function parseImages(raw: unknown): anthropicService.ImageInput[] {
+  if (raw === undefined) return []
+  if (!Array.isArray(raw)) throw badRequest('images must be an array')
+  return raw.map((image: unknown, i) => {
+    if (typeof image !== 'object' || image === null) {
+      throw badRequest(`images[${i}] must be an object`)
+    }
+    const { mediaType, data } = image as Record<string, unknown>
+    if (!anthropicService.isImageMediaType(mediaType)) {
+      throw badRequest(
+        `images[${i}].mediaType must be one of ${anthropicService.IMAGE_MEDIA_TYPES.join(', ')}`,
+      )
+    }
+    if (typeof data !== 'string' || !data) {
+      throw badRequest(`images[${i}].data must be a non-empty base64 string`)
+    }
+    return { mediaType, data }
+  })
+}
+
 function parseConversationId(raw: unknown): string {
   if (typeof raw !== 'string' || !raw.trim()) throw badRequest('conversationId is required')
   return raw
 }
 
 export const postMessage: RequestHandler = async (req, res) => {
-  const { conversationId, content, config } = req.body as {
+  const { conversationId, text, images, config } = req.body as {
     conversationId?: unknown
-    content?: string
+    text?: string
+    images?: unknown
     config?: unknown
   }
   const id = parseConversationId(conversationId)
-  if (!content?.trim()) throw badRequest('content is required')
-  res.json(await anthropicService.sendMessage(id, content, parseMessageConfig(config)))
+  if (!text?.trim()) throw badRequest('text is required')
+  res.json(
+    await anthropicService.sendMessage(id, text, parseImages(images), parseMessageConfig(config)),
+  )
 }
 
 export const deleteConversation: RequestHandler<{ id: string }> = (req, res) => {

@@ -4,6 +4,8 @@ import { useMessageSettings } from './useMessageSettings'
 import { SettingsDrawer } from './settingsDrawer'
 import { ResponseDrawer } from './responseDrawer'
 import { CodeBracketIcon, GearIcon } from './icons'
+import { ImagePickerButton, ImagePreviews } from './imagePicker'
+import { toDataUrl, type ImageInput } from './images'
 
 const answerClass =
   'w-fit max-w-[80%] rounded-lg bg-white px-4 py-2 whitespace-pre-wrap text-gray-900 shadow-sm'
@@ -16,14 +18,16 @@ export function Chat() {
   // null = follow the latest response
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [input, setInput] = useState('')
+  const [images, setImages] = useState<ImageInput[]>([])
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
     const question = input.trim()
     if (!question || loading || !messageSettings.isValid) return
     setInput('')
+    setImages([])
     setSelectedId(null)
-    void ask(question, messageSettings.settings)
+    void ask(question, images, messageSettings.settings)
   }
 
   const viewed = selectedId
@@ -76,6 +80,18 @@ export function Chat() {
           {entries.length === 0 && <p className="text-gray-500">Ask a question to get started.</p>}
           {entries.map((entry) => (
             <div key={entry.id} className="space-y-2">
+              {entry.images.length > 0 && (
+                <div className="ml-auto flex w-fit max-w-[80%] flex-wrap justify-end gap-2">
+                  {entry.images.map((image, i) => (
+                    <img
+                      key={i}
+                      src={toDataUrl(image)}
+                      alt=""
+                      className="max-h-40 rounded-lg border border-gray-200"
+                    />
+                  ))}
+                </div>
+              )}
               <div className="ml-auto w-fit max-w-[80%] rounded-lg bg-blue-600 px-4 py-2 text-white">
                 {entry.question}
               </div>
@@ -110,7 +126,9 @@ export function Chat() {
           ))}
         </section>
 
-        <form onSubmit={handleSubmit} className="mt-4 flex gap-2">
+        <ImagePreviews images={images} onChange={setImages} />
+        <form onSubmit={handleSubmit} className="mt-2 flex gap-2">
+          <ImagePickerButton images={images} onChange={setImages} disabled={loading} />
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}

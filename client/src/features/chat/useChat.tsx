@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api } from '../../api/client'
 import type { MessageSettings } from './useMessageSettings'
+import type { ImageInput } from './images'
 
 // Subset of the Anthropic Message object returned by the server
 type MessageResponse = { content: { type: string; text?: string }[] }
@@ -8,6 +9,7 @@ type MessageResponse = { content: { type: string; text?: string }[] }
 export type ChatEntry = {
   id: string
   question: string
+  images: ImageInput[]
   answer?: string
   error?: string
   response?: MessageResponse
@@ -21,15 +23,17 @@ export function useChat() {
 
   async function ask(
     question: string,
+    images: ImageInput[],
     { model, maxTokens, stopSequences, temperature }: MessageSettings,
   ) {
     const id = crypto.randomUUID()
-    setEntries((prev) => [...prev, { id, question }])
+    setEntries((prev) => [...prev, { id, question, images }])
     setLoading(true)
     try {
       const res = await api.post<MessageResponse>('/anthropic/messages', {
         conversationId,
-        content: question,
+        text: question,
+        images: images.length ? images : undefined,
         // Optional; the server fills in defaults for anything left out
         config: {
           model: model || undefined,

@@ -22,6 +22,20 @@ export interface MessageConfig {
 // What a caller may pass: every field is optional, required ones fall back to defaults
 export type MessageConfigInput = Partial<MessageConfig>
 
+// The image types the API accepts
+export const IMAGE_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const
+export type ImageMediaType = (typeof IMAGE_MEDIA_TYPES)[number]
+
+export function isImageMediaType(value: unknown): value is ImageMediaType {
+  return IMAGE_MEDIA_TYPES.includes(value as ImageMediaType)
+}
+
+// An image as the client sends it: base64 data without the `data:...;base64,` prefix
+export interface ImageInput {
+  mediaType: ImageMediaType
+  data: string
+}
+
 const client = new Anthropic()
 
 function resolveConfig({
@@ -30,6 +44,21 @@ function resolveConfig({
   ...optional
 }: MessageConfigInput): MessageConfig {
   return { model, maxTokens, ...optional }
+}
+
+// Images go before the text, which tends to give better results
+function createUserTurn(text: string, images: ImageInput[]): Anthropic.MessageParam {
+  if (images.length === 0) return { role: 'user', content: text }
+  return {
+    role: 'user',
+    content: [
+      ...images.map(({ mediaType, data }): Anthropic.ImageBlockParam => ({
+        type: 'image',
+        source: { type: 'base64', media_type: mediaType, data },
+      })),
+      { type: 'text', text },
+    ],
+  }
 }
 
 function createPayload(
@@ -56,12 +85,14 @@ export function getConfig() {
 
 export async function sendMessage(
   conversationId: string,
-  content: string,
+  text: string,
+  images: ImageInput[] = [],
   config: MessageConfigInput = {},
 ) {
-  const userTurn: Anthropic.MessageParam = { role: 'user', content }
+  const userTurn = createUserTurn(text, images)
   const payload = createPayload([...getHistory(conversationId), userTurn], resolveConfig(config))
   const message = await client.messages.create(payload)
+  const stream = client.messages.stream(payload)
 
   // Save only after success, and keep every block so tool_use blocks can be sent back later.
   // The API rejects an empty assistant turn, so skip the whole exchange if there's no content.
