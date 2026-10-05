@@ -9,7 +9,7 @@ const answerClass =
   'w-fit max-w-[80%] rounded-lg bg-white px-4 py-2 whitespace-pre-wrap text-gray-900 shadow-sm'
 
 export function Chat() {
-  const { entries, loading, ask } = useChat()
+  const { entries, loading, ask, newChat } = useChat()
   const messageSettings = useMessageSettings()
   const [settingsOpen, setSettingsOpen] = useState(true)
   const [responseOpen, setResponseOpen] = useState(true)
@@ -49,12 +49,23 @@ export function Chat() {
             </button>
           )}
           <h1 className="text-2xl font-semibold text-gray-900">Ask Claude</h1>
+          <button
+            type="button"
+            onClick={() => {
+              newChat()
+              setSelectedId(null)
+            }}
+            disabled={loading || entries.length === 0}
+            className="ml-auto rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            New chat
+          </button>
           {!responseOpen && (
             <button
               type="button"
               onClick={() => setResponseOpen(true)}
               aria-label="Open response"
-              className="ml-auto rounded-md border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-100"
+              className="rounded-md border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-100"
             >
               <CodeBracketIcon className="size-5" />
             </button>

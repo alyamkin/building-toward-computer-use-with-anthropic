@@ -16,6 +16,8 @@ export type ChatEntry = {
 export function useChat() {
   const [entries, setEntries] = useState<ChatEntry[]>([])
   const [loading, setLoading] = useState(false)
+  // The server keeps the history for this id and sends it with every request
+  const [conversationId, setConversationId] = useState(() => crypto.randomUUID())
 
   async function ask(
     question: string,
@@ -26,6 +28,7 @@ export function useChat() {
     setLoading(true)
     try {
       const res = await api.post<MessageResponse>('/anthropic/messages', {
+        conversationId,
         content: question,
         // Optional; the server fills in defaults for anything left out
         config: {
@@ -48,5 +51,12 @@ export function useChat() {
     }
   }
 
-  return { entries, loading, ask }
+  function newChat() {
+    // Best effort: the server only holds the history in memory anyway
+    api.delete(`/anthropic/conversations/${conversationId}`).catch(() => {})
+    setConversationId(crypto.randomUUID())
+    setEntries([])
+  }
+
+  return { entries, loading, ask, newChat }
 }

@@ -47,8 +47,23 @@ function parseMessageConfig(raw: unknown): anthropicService.MessageConfigInput {
   return { model, maxTokens, stopSequences, temperature }
 }
 
+function parseConversationId(raw: unknown): string {
+  if (typeof raw !== 'string' || !raw.trim()) throw badRequest('conversationId is required')
+  return raw
+}
+
 export const postMessage: RequestHandler = async (req, res) => {
-  const { content, config } = req.body as { content?: string; config?: unknown }
+  const { conversationId, content, config } = req.body as {
+    conversationId?: unknown
+    content?: string
+    config?: unknown
+  }
+  const id = parseConversationId(conversationId)
   if (!content?.trim()) throw badRequest('content is required')
-  res.json(await anthropicService.sendMessage(content, parseMessageConfig(config)))
+  res.json(await anthropicService.sendMessage(id, content, parseMessageConfig(config)))
+}
+
+export const deleteConversation: RequestHandler<{ id: string }> = (req, res) => {
+  anthropicService.resetConversation(req.params.id)
+  res.status(204).end()
 }

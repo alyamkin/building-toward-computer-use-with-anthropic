@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-An npm-workspaces monorepo (`client/` + `server/`) that serves as a learning project building toward Claude computer use. Currently it's a single-turn "Ask Claude" chat: a React UI posts a question to an Express API, which calls the Anthropic Messages API and returns the raw `Message` object.
+An npm-workspaces monorepo (`client/` + `server/`) that serves as a learning project building toward Claude computer use. Currently it's a multi-turn "Ask Claude" chat: a React UI posts a question to an Express API, which calls the Anthropic Messages API with the conversation's history and returns the raw `Message` object.
 
 ## Commands
 
@@ -31,7 +31,7 @@ The server loads `server/.env` through `tsx --env-file=.env`, so this only happe
 **Server layering** (`server/src/`), one file per resource in each layer:
 - `routes/<resource>.ts`: the Express `Router`. Each one is registered in `routes/index.ts` (e.g. `/todos`, `/anthropic`).
 - `controllers/<resource>Controller.ts`: thin `RequestHandler`s that pull data from `req` and call the service. They're async and can just `throw`, because Express 5 forwards rejected promises to the error handler.
-- `services/<resource>Service.ts`: the logic and external calls. `anthropicService.ts` wraps the Anthropic SDK and hardcodes the model and `max_tokens`. `todoService.ts` is an in-memory store.
+- `services/<resource>Service.ts`: the logic and external calls. `anthropicService.ts` wraps the Anthropic SDK and hardcodes the model and `max_tokens`. `conversationStore.ts` keeps each conversation's history in memory as `Anthropic.MessageParam[]`, keyed by a client-generated id; turns are saved only after a successful API call. `todoService.ts` is an in-memory store.
 - Errors: throw `HttpError` (or the `badRequest` / `notFound` helpers from `middleware/httpError.ts`). `errorHandler` turns them into `{ message }` JSON. In production it hides the message of any 5xx.
 
 The server is ESM with `module: NodeNext` and `verbatimModuleSyntax`. Relative imports **must use the `.js` extension** (`'./routes/index.js'`), and type-only imports must use `import type`.
@@ -39,4 +39,4 @@ The server is ESM with `module: NodeNext` and `verbatimModuleSyntax`. Relative i
 **Client** (`client/src/`): React 19, Vite, and Tailwind v4 (through `@tailwindcss/vite`, so there's no Tailwind config file).
 - `api/client.ts`: a small `fetch` wrapper (`api.get/post/delete`) that prefixes `/api` and throws `ApiError` using the server's `{ message }`.
 - `features/<feature>/`: a `useX` hook that owns the state and API calls, plus a component that renders it. `chat` is the one wired into `App.tsx`. `todos` is the scaffold example and isn't rendered.
-- `useChat` gets back the full Anthropic `Message` and joins its `text` content blocks on the client. Each request is single-turn: no conversation history is sent.
+- `useChat` gets back the full Anthropic `Message` and joins its `text` content blocks on the client. It sends a `conversationId` (a `crypto.randomUUID()`) with each request; the server holds the history. "New chat" deletes it (`DELETE /api/anthropic/conversations/:id`) and starts a new id.

@@ -8,6 +8,8 @@ import {
   type ModelId,
 } from '../config/models.js'
 
+import { appendTurns, clearHistory, getHistory } from './conversationStore.js'
+
 // Settings for a single message. `model` and `maxTokens` are required by the API, so they
 // always have a value; add further settings as optional fields and only send them when set.
 export interface MessageConfig {
@@ -30,14 +32,14 @@ function resolveConfig({
   return { model, maxTokens, ...optional }
 }
 
-function createMessagePayload(
-  content: string,
+function createPayload(
+  messages: Anthropic.MessageParam[],
   { model, maxTokens, stopSequences, temperature }: MessageConfig,
 ): Anthropic.MessageCreateParamsNonStreaming {
   return {
     model,
     max_tokens: maxTokens,
-    messages: [{ role: 'user', content }],
+    messages,
     ...(stopSequences?.length ? { stop_sequences: stopSequences } : {}),
     ...(temperature !== undefined ? { temperature } : {}),
   }
@@ -52,8 +54,23 @@ export function getConfig() {
   }
 }
 
-export async function sendMessage(content: string, config: MessageConfigInput = {}) {
-  const payload = createMessagePayload(content, resolveConfig(config))
+export async function sendMessage(
+  conversationId: string,
+  content: string,
+  config: MessageConfigInput = {},
+) {
+  const userTurn: Anthropic.MessageParam = { role: 'user', content }
+  const payload = createPayload([...getHistory(conversationId), userTurn], resolveConfig(config))
   const message = await client.messages.create(payload)
+
+  // Save only after success, and keep every block so tool_use blocks can be sent back later.
+  // The API rejects an empty assistant turn, so skip the whole exchange if there's no content.
+  if (message.content.length > 0) {
+    appendTurns(conversationId, userTurn, { role: 'assistant', content: message.content })
+  }
   return message
+}
+
+export function resetConversation(conversationId: string) {
+  clearHistory(conversationId)
 }
